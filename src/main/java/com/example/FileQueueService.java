@@ -7,7 +7,17 @@ import java.io.PrintWriter;
 import java.util.concurrent.TimeUnit;
 
 public class FileQueueService implements QueueService {
+    private static FileQueueService instance = null;
     private final String LOCK_DIR = ".lock";
+    private final String INVISIBLE_DIR = "invisible";
+    private final String MESSAGE_DIR = "messages";
+
+    public static FileQueueService getInstance() {
+        if (instance == null) {
+            instance = new FileQueueService();
+        }
+        return instance;
+    }
 
     @Override
     public void push(String queueUrl, String messageBody) throws InterruptedException, IOException {

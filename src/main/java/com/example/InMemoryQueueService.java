@@ -24,6 +24,11 @@ public class InMemoryQueueService implements QueueService {
         return instance;
     }
 
+    public int getSize(String queueUrl) {
+        Deque<Message> messageDeque = getMainQueue(queueUrl);
+        return messageDeque.size();
+    }
+
     @Override
     public void push(String queueUrl, String messageBody) {
         Deque<Message> messageDeque = getMainQueue(queueUrl);
