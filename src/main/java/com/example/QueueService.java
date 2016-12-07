@@ -1,12 +1,9 @@
 package com.example;
 
+import java.io.IOException;
+
 public interface QueueService {
-    public void push(String queueUrl, String messageBody);
-    // TODO: return PushResult
-
-    public Message pull(String queueUrl);
-    // TODO: ReceiveMessageResult
-
-    public void delete(String queueUrl, String receiptHandle);
-    // TODO: return DeleteResult
+    void push(String queueUrl, String messageBody) throws InterruptedException, IOException;
+    Message pull(String queueUrl) throws InterruptedException, IOException;
+    void delete(String queueUrl, String receiptHandle);
 }
