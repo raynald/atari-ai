@@ -22,6 +22,10 @@ public class Message {
         queue = "";
     }
 
+    public String toString() {
+        return String.format("%s:%s:%s", receiptHandle, messageBody, revival);
+    }
+
     public String getMessageBody() {
         return messageBody;
     }

@@ -18,14 +18,14 @@ public class InMemoryQueueService implements QueueService {
     private PriorityBlockingQueue<Message> invisibleQueueHeap;
 
     private Long delaySeconds = 500L;
-    private Comparator<Message> comparator = new Comparator<Message>() {
-        @Override
-        public int compare(Message o1, Message o2) {
-            return o1.getRevival().compareTo(o2.getRevival();
-        }
-    };
 
     private InMemoryQueueService() {
+        Comparator<Message> comparator = new Comparator<Message>() {
+            @Override
+            public int compare(Message o1, Message o2) {
+                return o1.getRevival().compareTo(o2.getRevival();
+            }
+        };
         invisibleQueueMap = new ConcurrentHashMap<>();
         mainQueue = new ConcurrentHashMap<>();
         invisibleQueueHeap = new PriorityBlockingQueue<>(10, comparator);
@@ -46,7 +46,7 @@ public class InMemoryQueueService implements QueueService {
         return instance;
     }
 
-    public int getSize(String queueUrl) {
+    int getSize(String queueUrl) {
         Deque<Message> messageDeque = getMainQueue(queueUrl);
         return messageDeque.size();
     }
@@ -91,20 +91,10 @@ public class InMemoryQueueService implements QueueService {
     }
 
     private Deque<Message> getMainQueue(String queueUrl) {
-        Deque<Message> result = mainQueue.get(queueUrl);
-        if (result == null) {
-            result = new ConcurrentLinkedDeque<Message>();
-            mainQueue.put(queueUrl, result);
-        }
-        return result;
+        return mainQueue.computeIfAbsent(queueUrl, k -> new ConcurrentLinkedDeque<Message>());
     }
 
     private HashMap<String, Message> getInvisibleQueueMap(String queueUrl) {
-        HashMap<String, Message> result = invisibleQueueMap.get(queueUrl);
-        if (result == null) {
-            result = new HashMap<String, Message>();
-            invisibleQueueMap.put(queueUrl, result);
-        }
-        return result;
+        return invisibleQueueMap.computeIfAbsent(queueUrl, k -> new HashMap<String, Message>());
     }
 }

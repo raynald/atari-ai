@@ -5,6 +5,7 @@ import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Mockito.spy;
 
 public class InMemoryQueueTest {
@@ -21,15 +22,15 @@ public class InMemoryQueueTest {
     @Test
     public void pushTest() {
         service.push(QUEUE_NAME, messageBody);
-        assertEquals("xxxx", 1, service.getSize(QUEUE_NAME));
+        assertEquals("The size of message queue is not one!", 1, service.getSize(QUEUE_NAME));
     }
 
     @Test
     public void pullTest() {
         service.push(QUEUE_NAME, messageBody);
         Message message = service.pull(QUEUE_NAME);
-        assertNotNull("hallo", message);
-        assertEquals("ree", message.getMessageBody(), messageBody);
+        assertNotNull("Failed to retrieve the message!", message);
+        assertEquals("Message is not same!", message.getMessageBody(), messageBody);
     }
 
     @Test
@@ -37,11 +38,15 @@ public class InMemoryQueueTest {
         service.push(QUEUE_NAME, messageBody);
         Message message = service.pull(QUEUE_NAME);
         service.delete(QUEUE_NAME, message.getReceiptHandle());
-        assertEquals("caaf", 0, service.getSize());
+        assertEquals("Queue is not empty!", 0, service.getSize(QUEUE_NAME));
     }
 
     @Test
-    public void timeoutTest() {
+    public void revivalTest() {
+        service.push(QUEUE_NAME, messageBody);
+        Message firstMessage = service.pull(QUEUE_NAME);
+        Message secondMessage = service.pull(QUEUE_NAME);
+        assertNull("Second pulled message is not NULL!", secondMessage);
 
     }
 }

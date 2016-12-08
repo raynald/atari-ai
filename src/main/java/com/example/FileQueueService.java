@@ -5,24 +5,18 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Deque;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public class FileQueueService implements QueueService {
     private static FileQueueService instance = null;
-    private String baseDir = "tmp";
-    private final String LOCK_DIR = ".lock";
-    private final String INVISIBLE_DIR = "invisible";
-    private final String MESSAGE_DIR = "messages";
-    private final String MESSAGE_SHADOW_DIR = "shadow";
+    private final String MESSAGE_FILE_NAME = "messages";
     private Long delaySeconds = 500L;
     private Path basePath;
-    private Path messagePath;
-    private Path invisiblePath;
 
     private FileQueueService() {
+        String baseDir = "tmp";
+
         String dir = System.getProperty("directory");
         if (dir != null) {
             baseDir = dir;
@@ -32,8 +26,6 @@ public class FileQueueService implements QueueService {
             mydir.mkdir();
         }
         basePath = Paths.get(baseDir);
-        messagePath = basePath.resolve(MESSAGE_DIR);
-        invisiblePath = basePath.resolve(INVISIBLE_DIR);
     }
 
     public static FileQueueService getInstance() {
@@ -56,13 +48,10 @@ public class FileQueueService implements QueueService {
         String queue = fromUrl(queueUrl);
         Message message = new Message(messageBody);
         Path path = getQueueDir(queue);
-        Path queueMessagePath = path.resolve(MESSAGE_DIR);
-        if (Files.notExists(queueMessagePath)) {
-            Files.createDirectories(queueMessagePath);
-        }
         File lock = getLockFile(queue);
         try {
             lock(lock);
+            Path queueMessagePath = getQueueMessageQueueDir(queueUrl);
             Files.write(queueMessagePath, message.toString().getBytes(), StandardOpenOption.APPEND);
         } finally {
             unlock(lock);
@@ -70,10 +59,12 @@ public class FileQueueService implements QueueService {
     }
 
     public Message pull(String queueUrl) throws InterruptedException, IOException {
+        final String MESSAGE_SHADOW_NAME = "shadow";
+
         String queue = fromUrl(queueUrl);
         Path path = getQueueDir(queue);
-        File queueMessagePath = basePath.resolve(MESSAGE_DIR).toFile();
-        File shadowQueuePath = path.resolve(MESSAGE_SHADOW_DIR).toFile();
+        File queueMessagePath = getQueueMessageQueueDir(queueUrl).toFile();
+        File shadowQueuePath = path.resolve(MESSAGE_SHADOW_NAME).toFile();
         File lock = getLockFile(queue);
         try {
             lock(lock);
@@ -87,26 +78,71 @@ public class FileQueueService implements QueueService {
                 writer.close();
             }
             String message = readFromLast(shadowQueuePath);
-            Files.write(invisibleQueuePath.toPath(), String.format("%s:%s", message, now() + delaySeconds).getBytes(), StandardOpenOption.APPEND);
+            Path invisibleQueuePath = getInvisibleQueueDir(queueUrl);
+            Files.write(invisibleQueuePath, String.format("%s:%s", message, now() + delaySeconds).getBytes(), StandardOpenOption.APPEND);
             return new Message(message);
         } finally {
             unlock(lock);
         }
     }
 
-    public void delete(String queueUrl, String receiptHandle) {
-
+    public void delete(String queueUrl, String receiptHandle) throws InterruptedException, IOException {
+        File lock = getLockFile(queueUrl);
+        try {
+            lock(lock);
+            List<String> invisibleMessages = Files.readAllLines(getInvisibleQueueDir(queueUrl));
+            List<String> afterDeleteMessages = new LinkedList<>();
+            for(String message: invisibleMessages) {
+                String[] split = message.split(":");
+                if (!split[0].equals(receiptHandle)) {
+                    afterDeleteMessages.add(message);
+                }
+            }
+            Path invisiblePath = getInvisibleQueueDir(queueUrl);
+            for (String message: afterDeleteMessages) {
+                Files.write(invisiblePath, message.getBytes(), StandardOpenOption.APPEND);
+            }
+        } finally {
+            unlock(lock);
+        }
     }
 
-    protected void clearInsivible() throws IOException {
-        List<String> messages = Files.readAllLines(invisibleQueuePath.toPath());
+    public int getSize(String queueUrl) throws IOException {
+        return Files.readAllLines(getQueueMessageQueueDir(queueUrl)).size();
+    }
+
+    private Path getQueuePath(String queueUrl) {
+        return basePath.resolve(queueUrl);
+    }
+
+    private Path getInvisibleQueueDir(String queueUrl) throws IOException {
+        final String INVISIBLE_FILE_NAME = "invisible";
+        return getQueueDir(queueUrl).resolve(INVISIBLE_FILE_NAME);
+    }
+
+    private Path getQueueMessageQueueDir(String queueUrl) throws IOException {
+        return getQueueDir(queueUrl).resolve(MESSAGE_FILE_NAME);
+    }
+
+    private Path getShadowQueueMessageQueueDir(String queueUrl) throws IOException {
+        return getQueueDir(queueUrl).resolve(MESSAGE_FILE_NAME);
+    }
+
+    protected void clearInsivible(String queueUrl) throws IOException {
+        List<String> messages = Files.readAllLines(getInvisibleQueueDir(queueUrl));
         List<String> afterCleanMessgages = new LinkedList<String>();
+        Path messageQueuePath = getQueueMessageQueueDir(queueUrl);
         for(String message: messages) {
             String[] split = message.split(":");
             if (Long.valueOf(split[1]) <= now()) {
-
-                getMainQueue(message.getQueue()).offerLast(message);
-            } else break;
+                Files.write(messageQueuePath, message.getBytes(), StandardOpenOption.APPEND);
+            } else {
+                afterCleanMessgages.add(split[0]);
+            }
+        }
+        Path invisiblePath = getInvisibleQueueDir(queueUrl);
+        for (String message: afterCleanMessgages) {
+            Files.write(invisiblePath, message.getBytes(), StandardOpenOption.APPEND);
         }
     }
 
@@ -136,14 +172,10 @@ public class FileQueueService implements QueueService {
             randomAccessFile.setLength(pointer);
             builder.reverse();
             return builder.toString();
-        } catch (FileNotFoundException e) {
+        } catch (IOException e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
-        }
-        catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }finally{
+        } finally{
             if(randomAccessFile != null){
                 try {
                     randomAccessFile.close();
@@ -153,6 +185,7 @@ public class FileQueueService implements QueueService {
                 }
             }
         }
+        return "";
     }
 
     private String fromUrl(String queueUrl) {
@@ -161,6 +194,7 @@ public class FileQueueService implements QueueService {
     }
 
     private File getLockFile(String queue) {
+        final String LOCK_DIR = ".lock";
         return new File(queue + LOCK_DIR);
     }
 
