@@ -23,7 +23,7 @@ public class InMemoryQueueService implements QueueService {
         Comparator<Message> comparator = new Comparator<Message>() {
             @Override
             public int compare(Message o1, Message o2) {
-                return o1.getRevival().compareTo(o2.getRevival();
+                return o1.getRevival().compareTo(o2.getRevival());
             }
         };
         invisibleQueueMap = new ConcurrentHashMap<>();

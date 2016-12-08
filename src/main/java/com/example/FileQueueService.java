@@ -135,7 +135,7 @@ public class FileQueueService implements QueueService {
      * Purge the queue
      * @param queue queue name
      */
-    protected void purgeQueue(String queue) {
+    protected void purgeQueue(String queue) throws IOException {
         getQueueMessageQueueDir(queue).toFile().delete();
         getInvisibleQueueDir(queue).toFile().delete();
     }

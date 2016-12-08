@@ -5,12 +5,12 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 
 import java.io.IOException;
-import java.io.InterruptedIOException;
-import java.nio.file.Files;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static org.mockito.Mockito.spy;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 public class FileQueueTest {
     private final String QUEUE_NAME = "MyQueue";
@@ -19,8 +19,8 @@ public class FileQueueTest {
     private String messageBodyNew;
 
     @Before
-    public void setUp() {
-        service = spy(new FileQueueService.class);
+    public void setUp() throws IOException {
+        service = FileQueueService.getInstance();
         messageBody = String.format("FileQueueTest%s", System.currentTimeMillis());
         messageBodyNew = String.format("FileQueueTestNew%s", System.currentTimeMillis());
         service.purgeQueue(QUEUE_NAME);
@@ -29,8 +29,10 @@ public class FileQueueTest {
     @Test
     public void pushTest() throws InterruptedException, IOException {
         service.push(QUEUE_NAME, messageBody);
-        assertEquals("The size of message queue is not one!", 1, service.getSize(QUEUE_NAME));
+        assertEquals("The size of message queue is not one!", 1, service.getQueueSize(QUEUE_NAME));
     }
+
+
 
     @Test
     public void pullTest() throws InterruptedException, IOException {
@@ -62,11 +64,11 @@ public class FileQueueTest {
         service.push(QUEUE_NAME, messageBody);
         service.push(QUEUE_NAME, messageBodyNew);
 
-        assertThat(service.pull(QUEUE_NAME).getMessageBody(), messageBody);
+        assertEquals(service.pull(QUEUE_NAME).getMessageBody(), messageBody);
         while(service.getInvisibleSize(QUEUE_NAME) != 0 && service.getQueueSize(QUEUE_NAME) != 2){}
 
         assertEquals(service.getQueueSize(QUEUE_NAME), 2);
-        assertEquals(service.getInvisibleSize(QUEUE_NAME), 0));
+        assertEquals(service.getInvisibleSize(QUEUE_NAME), 0);
         assertEquals(service.pull(QUEUE_NAME).getMessageBody(), messageBody);
     }
 

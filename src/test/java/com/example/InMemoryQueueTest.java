@@ -9,7 +9,6 @@ import java.util.concurrent.Executors;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
-import static org.mockito.Mockito.spy;
 
 public class InMemoryQueueTest {
     private final String QUEUE_NAME = "MyQueue";
@@ -18,7 +17,7 @@ public class InMemoryQueueTest {
 
     @Before
     public void setUp() {
-        service = spy(InMemoryQueueService.class);
+        service = InMemoryQueueService.getInstance();
         messageBody = String.format("InMemeryQueueTest%s", System.currentTimeMillis());
         service.purgeQueue(QUEUE_NAME);
     }
@@ -26,7 +25,7 @@ public class InMemoryQueueTest {
     @Test
     public void pushTest() {
         service.push(QUEUE_NAME, messageBody);
-        assertEquals("The size of message queue is not one!", 1, service.getSize(QUEUE_NAME));
+        assertEquals("The size of message queue is not one!", 1, service.getQueueSize(QUEUE_NAME));
     }
 
     @Test
@@ -42,7 +41,7 @@ public class InMemoryQueueTest {
         service.push(QUEUE_NAME, messageBody);
         Message message = service.pull(QUEUE_NAME);
         service.delete(QUEUE_NAME, message.getReceiptHandle());
-        assertEquals("Queue is not empty!", 0, service.getSize(QUEUE_NAME));
+        assertEquals("Queue is not empty!", 0, service.getQueueSize(QUEUE_NAME));
     }
 
     @Test
