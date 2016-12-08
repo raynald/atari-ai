@@ -46,9 +46,13 @@ public class InMemoryQueueService implements QueueService {
         return instance;
     }
 
-    int getSize(String queueUrl) {
-        Deque<Message> messageDeque = getMainQueue(queueUrl);
+    int getQueueSize(String queue) {
+        Deque<Message> messageDeque = getMainQueue(queue);
         return messageDeque.size();
+    }
+
+    int getInvisibleSize() {
+        return invisibleQueueHeap.size();
     }
 
     /**

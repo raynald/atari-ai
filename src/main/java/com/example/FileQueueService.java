@@ -110,8 +110,12 @@ public class FileQueueService implements QueueService {
         }
     }
 
-    public int getSize(String queue) throws IOException {
+    public int getQueueSize(String queue) throws IOException {
         return Files.readAllLines(getQueueMessageQueueDir(queue)).size();
+    }
+
+    public int getInvisibleSize(String queue) throws IOException {
+        return Files.readAllLines(getInvisibleQueueDir(queue)).size();
     }
 
     private Path getInvisibleQueueDir(String queue) throws IOException {
@@ -125,6 +129,15 @@ public class FileQueueService implements QueueService {
 
     private Path getShadowQueueMessageQueueDir(String queue) throws IOException {
         return getQueueDir(queue).resolve(MESSAGE_FILE_NAME);
+    }
+
+    /**
+     * Purge the queue
+     * @param queue queue name
+     */
+    protected void purgeQueue(String queue) {
+        getQueueMessageQueueDir(queue).toFile().delete();
+        getInvisibleQueueDir(queue).toFile().delete();
     }
 
     /**
