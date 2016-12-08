@@ -47,6 +47,5 @@ public class InMemoryQueueTest {
         Message firstMessage = service.pull(QUEUE_NAME);
         Message secondMessage = service.pull(QUEUE_NAME);
         assertNull("Second pulled message is not NULL!", secondMessage);
-
     }
 }
