@@ -73,7 +73,7 @@ public class InMemoryQueueTest {
         assertEquals(messageBody, service.pull(QUEUE_NAME).getMessageBody());
         assertEquals(1, service.getQueueSize(QUEUE_NAME));
         while(service.getInvisibleSize(QUEUE_NAME) != 0 || service.getQueueSize(QUEUE_NAME) != 2)  {
-            service.clearInsivible();
+            service.clearInvisible();
         }
         assertEquals(0, service.getInvisibleSize(QUEUE_NAME));
         assertEquals(2, service.getQueueSize(QUEUE_NAME));

@@ -9,10 +9,10 @@ import java.util.concurrent.PriorityBlockingQueue;
 
 /**
  * InMemory implementation of queue service.
- * A hashmap maps from queue name to a deque which stores the messages;
- * A same structure hashmap stores all the invisible messages;
+ * A hashmap maps from a queue name to a deque which stores the messages.
+ * Another hashmap with same structure stores all the invisible messages.
  * A priority queue is used to store all the invisible messages together for quick restoring
- * timeout message back to the main queue.
+ * timeout messages back to the main queue.
  */
 public class InMemoryQueueService implements QueueService {
     private static InMemoryQueueService instance = null;
@@ -22,10 +22,8 @@ public class InMemoryQueueService implements QueueService {
 
     private Long delayMilliSeconds = 500L;
 
-    /**
-     * A customized comparator is used to rank the priority queue by revival time.
-     */
     private InMemoryQueueService() {
+        // A customized comparator is used to rank the priority queue by revival time.
         Comparator<Message> comparator = new Comparator<Message>() {
             @Override
             public int compare(Message o1, Message o2) {
@@ -41,7 +39,7 @@ public class InMemoryQueueService implements QueueService {
         return System.currentTimeMillis();
     }
 
-    public void setDelayMilliSeconds(Long time) {
+    void setDelayMilliSeconds(Long time) {
         delayMilliSeconds = time;
     }
 
@@ -58,12 +56,19 @@ public class InMemoryQueueService implements QueueService {
 
     /**
      * Get the number of visible messages.
+     * @param queue queue name
+     * @return size of the queue
      */
     int getQueueSize(String queue) {
         Deque<Message> messageDeque = getMainQueue(queue);
         return messageDeque.size();
     }
 
+    /**
+     * Get the number of invisible messages.
+     * @param queue queue name
+     * @return size of the invisible queue
+     */
     int getInvisibleSize(String queue) {
         return getInvisibleQueueMap(queue).size();
     }
@@ -111,7 +116,7 @@ public class InMemoryQueueService implements QueueService {
     /**
      * Clean up the invisible heap, put the timeout message back to the main queue.
      */
-    protected void clearInsivible() {
+    protected void clearInvisible() {
         while (invisibleQueueHeap.size() > 0) {
             Message message = invisibleQueueHeap.peek();
             if (message.getRevival() <= now()) {

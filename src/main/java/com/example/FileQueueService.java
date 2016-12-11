@@ -11,10 +11,10 @@ import java.util.logging.Logger;
 
 /**
  * File implementation of queue service.
- * Each queue is a folder with message stores in a file 'messages', and 'shadow'
- * Early messages are stored in shadow with reversing order (First message is at the bottom).
- * This design prevents rewrite the file after consuming a message. Invisible messages are stored
- * in file 'invisible' and the folder '.lock' is served as mutex lock as a concurrency solution.
+ * Each queue is a folder with message stores in a file 'messages' and 'shadow'.
+ * Early messages are stored in shadow with reversing order (First message is at the bottom of the file).
+ * This design prevents rewriting the file after consuming a message. Invisible messages are stored in
+ * file 'invisible' and the folder '.lock' is served as a mutex lock as a concurrency solution.
  */
 public class FileQueueService implements QueueService {
     private static final Logger LOGGER = Logger.getLogger(FileQueueService.class.getName());
@@ -49,7 +49,7 @@ public class FileQueueService implements QueueService {
         return System.currentTimeMillis();
     }
 
-    public void setDelayMilliSeconds(Long delayTime) {
+    void setDelayMilliSeconds(Long delayTime) {
         delayMilliSeconds = delayTime;
     }
 
@@ -78,18 +78,22 @@ public class FileQueueService implements QueueService {
             lock(lock);
             if (shadowQueuePath.length() == 0) {
                 List<String> allMessages = Files.readAllLines(queueMessagePath.toPath());
+                // Reverse the messages and write into shadow queue
                 for (int i = allMessages.size() - 1;i >= 0;i --) {
                     Files.write(shadowQueuePath.toPath(), String.format("%s\n", allMessages.get(i)).getBytes(), StandardOpenOption.APPEND);
                 }
+                // Clear the message file
                 PrintWriter writer = new PrintWriter(queueMessagePath);
                 writer.print("");
                 writer.close();
             }
+            // Read the first message in the queue (the last line of the file)
             String rawString = readFromLast(shadowQueuePath);
             LOGGER.info("Raw String: " + rawString);
             message = Message.fromString(rawString);
             Path invisibleQueuePath = getInvisibleQueuePath(queue);
             if (message != null) {
+                // Set the revival time and put the message temporarily into the invisible queue
                 message.setRevival(now() + delayMilliSeconds);
                 Files.write(invisibleQueuePath, String.format("%s\n", message.toString()).getBytes(), StandardOpenOption.APPEND);
             }
@@ -102,12 +106,12 @@ public class FileQueueService implements QueueService {
     @Override
     public void delete(String queueUrl, String receiptHandle) throws InterruptedException, IOException {
         String queue = fromUrl(queueUrl);
-
         File lock = getLockFile(queue);
         try {
             lock(lock);
             List<String> invisibleMessages = Files.readAllLines(getInvisibleQueuePath(queue));
             List<String> afterDeleteMessages = new LinkedList<>();
+            // Iterate through the invisible queue and delete the corresponding message
             for (String rawMessage: invisibleMessages) {
                 Message message = Message.fromString(rawMessage);
                 if (message != null && !message.getReceiptHandle().equals(receiptHandle)) {
@@ -121,7 +125,7 @@ public class FileQueueService implements QueueService {
     }
 
     /**
-     * Help function to generate a new invisble queue.
+     * Help function to generate a new invisible queue.
      * @param queue queue name
      * @param afterDeleteMessages the messages to be put on the queue
      * @throws IOException exception
@@ -132,13 +136,14 @@ public class FileQueueService implements QueueService {
         PrintWriter writer = new PrintWriter(invisiblePath.toFile());
         writer.print("");
         writer.close();
+        // Write the content
         for (String message: afterDeleteMessages) {
             Files.write(invisiblePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
         }
     }
 
     /**
-     *  The number of visible messages.
+     * The number of visible messages.
      * @param queue queue name
      * @return number of lines in 'messages' and 'shadow'
      * @throws IOException exception
@@ -149,7 +154,7 @@ public class FileQueueService implements QueueService {
     }
 
     /**
-     *  The number of invisible messages.
+     * The number of invisible messages.
      * @param queue queue name
      * @return number of lines in 'invisible'
      * @throws IOException exception
@@ -202,7 +207,7 @@ public class FileQueueService implements QueueService {
      * @param queue the name of the queue
      * @throws IOException exception
      */
-    protected void clearInsivible(String queue) throws IOException {
+    protected void clearInvisible(String queue) throws IOException {
         List<String> messages = Files.readAllLines(getInvisibleQueuePath(queue));
         List<String> afterDeleteMessages = new LinkedList<String>();
         Path shadowQueuePath = getShadowQueueMessageQueuePath(queue);
@@ -211,6 +216,7 @@ public class FileQueueService implements QueueService {
             if (message == null) {
                 continue;
             }
+            // Put the timeout message back to the shadow queue
             if (message.getRevival() <= now()) {
                 Files.write(shadowQueuePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
             } else {
@@ -236,34 +242,33 @@ public class FileQueueService implements QueueService {
             if (fileLength < 0) {
                 return "";
             }
-            // Set the pointer at the last of the file
+            // Set the pointer to the end of the file.
             randomAccessFile.seek(fileLength);
             long pointer;
             for (pointer = fileLength; pointer >= 0; pointer--) {
                 randomAccessFile.seek(pointer);
                 char singleChar;
-                // read from the last one char at the time
+                // Read from the last one char at the time.
                 singleChar = (char)randomAccessFile.read();
-                // break when end of the line
+                // Break when find the end of the line.
                 if (singleChar == '\n') {
                     break;
                 }
                 builder.append(singleChar);
             }
-            // Since line is read from the last so it
-            // is in reverse so use reverse method to make it right
+            /* Since line is read from the last so it
+             * is in reverse so use reverse method to make it right
+             */
             randomAccessFile.getChannel().truncate(pointer + 1);
             builder.reverse();
             return builder.toString();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         } finally {
             if (randomAccessFile != null) {
                 try {
                     randomAccessFile.close();
                 } catch (IOException e) {
-                    // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
             }
