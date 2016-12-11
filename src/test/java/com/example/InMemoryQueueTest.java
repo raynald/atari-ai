@@ -1,17 +1,19 @@
 package com.example;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.Logger;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 public class InMemoryQueueTest {
-    private final String QUEUE_NAME = "MyQueue";
+    private final String BASE_QUEUE_NAME = "InMemoryQueue";
     private InMemoryQueueService service;
     private String messageBody;
 
@@ -19,17 +21,20 @@ public class InMemoryQueueTest {
     public void setUp() {
         service = InMemoryQueueService.getInstance();
         messageBody = String.format("InMemeryQueueTest%s", System.currentTimeMillis());
-        service.purgeQueue(QUEUE_NAME);
     }
 
     @Test
     public void pushTest() {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Push";
+        service.purgeQueue(QUEUE_NAME);
         service.push(QUEUE_NAME, messageBody);
         assertEquals("The size of message queue is not one!", 1, service.getQueueSize(QUEUE_NAME));
     }
 
     @Test
     public void pullTest() {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Pull";
+        service.purgeQueue(QUEUE_NAME);
         service.push(QUEUE_NAME, messageBody);
         Message message = service.pull(QUEUE_NAME);
         assertNotNull("Failed to retrieve the message!", message);
@@ -38,6 +43,8 @@ public class InMemoryQueueTest {
 
     @Test
     public void deleteTest() {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Delete";
+        service.purgeQueue(QUEUE_NAME);
         service.push(QUEUE_NAME, messageBody);
         Message message = service.pull(QUEUE_NAME);
         service.delete(QUEUE_NAME, message.getReceiptHandle());
@@ -46,6 +53,8 @@ public class InMemoryQueueTest {
 
     @Test
     public void revivalTest() {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Revival";
+        service.purgeQueue(QUEUE_NAME);
         service.push(QUEUE_NAME, messageBody);
         Message firstMessage = service.pull(QUEUE_NAME);
         Message secondMessage = service.pull(QUEUE_NAME);
@@ -54,6 +63,8 @@ public class InMemoryQueueTest {
 
     @Test
     public void concurrentTest() {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Concur";
+        service.purgeQueue(QUEUE_NAME);
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() + 1);
         for (int i = 0; i < 1; i++) {
             service.push(QUEUE_NAME, messageBody);
@@ -65,7 +76,7 @@ public class InMemoryQueueTest {
         }
         executor.shutdown();
         while (!executor.isTerminated()) {}
-        assertEquals("Messages queue is not empty", service.getQueueSize(QUEUE_NAME), 0);
-        assertEquals("Pending messages container is not empty", service.getInvisibleSize(), 0);
+        assertEquals("Messages queue is not empty", 0, service.getQueueSize(QUEUE_NAME));
+        assertEquals("Pending messages container is not empty", 0, service.getInvisibleSize(QUEUE_NAME));
     }
 }

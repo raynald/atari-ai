@@ -13,7 +13,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 public class FileQueueTest {
-    private final String QUEUE_NAME = "MyQueue";
+    private final String BASE_QUEUE_NAME = "MyQueue";
     private FileQueueService service;
     private String messageBody;
     private String messageBodyNew;
@@ -23,11 +23,13 @@ public class FileQueueTest {
         service = FileQueueService.getInstance();
         messageBody = String.format("FileQueueTest%s", System.currentTimeMillis());
         messageBodyNew = String.format("FileQueueTestNew%s", System.currentTimeMillis());
-        service.purgeQueue(QUEUE_NAME);
     }
 
     @Test
     public void pushTest() throws InterruptedException, IOException {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Push";
+        service.purgeQueue(QUEUE_NAME);
+
         service.push(QUEUE_NAME, messageBody);
         assertEquals("The size of message queue is not one!", 1, service.getQueueSize(QUEUE_NAME));
     }
@@ -36,6 +38,8 @@ public class FileQueueTest {
 
     @Test
     public void pullTest() throws InterruptedException, IOException {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Pull";
+        service.purgeQueue(QUEUE_NAME);
         service.push(QUEUE_NAME, messageBody);
         Message message = service.pull(QUEUE_NAME);
         assertNotNull("Failed to retrieve the message!", message);
@@ -44,6 +48,8 @@ public class FileQueueTest {
 
     @Test
     public void deleteTest() throws InterruptedException, IOException {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Delete";
+        service.purgeQueue(QUEUE_NAME);
         service.push(QUEUE_NAME, messageBody);
         Message message = service.pull(QUEUE_NAME);
         service.delete(QUEUE_NAME, message.getReceiptHandle());
@@ -52,6 +58,8 @@ public class FileQueueTest {
 
     @Test
     public void revivalTest() throws InterruptedException, IOException{
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Revival";
+        service.purgeQueue(QUEUE_NAME);
         service.push(QUEUE_NAME, messageBody);
         Message firstMessage = service.pull(QUEUE_NAME);
         Message secondMessage = service.pull(QUEUE_NAME);
@@ -60,6 +68,8 @@ public class FileQueueTest {
 
     @Test(timeout = 1000)
     public void timeoutTest() throws InterruptedException, IOException{
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Timeout";
+        service.purgeQueue(QUEUE_NAME);
         service.setDelaySeconds(0L);
         service.push(QUEUE_NAME, messageBody);
         service.push(QUEUE_NAME, messageBodyNew);
@@ -74,6 +84,8 @@ public class FileQueueTest {
 
     @Test
     public void concurrentTest() throws InterruptedException, IOException {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Concur";
+        service.purgeQueue(QUEUE_NAME);
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() + 1);
         for (int i = 0; i < 1; i++) {
             service.push(QUEUE_NAME, messageBody);

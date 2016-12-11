@@ -3,6 +3,8 @@ package com.example;
 import java.util.UUID;
 
 public class Message {
+    final static private String messageSeparator = "@";
+
     private String messageBody;
     private String receiptHandle;
     private Long revival;
@@ -23,7 +25,8 @@ public class Message {
     }
 
     public String toString() {
-        return String.format("%s:%s:%s", receiptHandle, messageBody, revival);
+        return String.format("%s%s%s%s%s", receiptHandle, messageSeparator
+                , messageBody, messageSeparator, revival);
     }
 
     public String getMessageBody() {
@@ -48,5 +51,9 @@ public class Message {
 
     public void setQueue(String queueName) {
         queue = queueName;
+    }
+
+    public static String getMessageSeparator() {
+        return messageSeparator;
     }
 }

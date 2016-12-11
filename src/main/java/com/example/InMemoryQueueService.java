@@ -51,8 +51,8 @@ public class InMemoryQueueService implements QueueService {
         return messageDeque.size();
     }
 
-    int getInvisibleSize() {
-        return invisibleQueueHeap.size();
+    int getInvisibleSize(String queue) {
+        return getInvisibleQueueMap(queue).size();
     }
 
     /**
@@ -90,6 +90,7 @@ public class InMemoryQueueService implements QueueService {
     public void delete(String queueUrl, String receiptHandle) {
         String queue = fromUrl(queueUrl);
         HashMap<String, Message> messageQueue = getInvisibleQueueMap(queue);
+        invisibleQueueHeap.remove(messageQueue.get(receiptHandle));
         messageQueue.remove(receiptHandle);
     }
 

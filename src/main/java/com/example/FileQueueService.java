@@ -7,10 +7,11 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class FileQueueService implements QueueService {
+    private static final Logger LOGGER = Logger.getLogger(FileQueueService.class.getName());
     private static FileQueueService instance = null;
-    private final String MESSAGE_FILE_NAME = "messages";
     private Long delaySeconds = 500L;
     private Path basePath;
 
@@ -22,9 +23,8 @@ public class FileQueueService implements QueueService {
             baseDir = dir;
         }
         File mydir = new File(baseDir);
-        if (!mydir.exists()) {
-            mydir.mkdir();
-        }
+        mydir.deleteOnExit();
+        mydir.mkdir();
         basePath = Paths.get(baseDir);
     }
 
@@ -47,12 +47,11 @@ public class FileQueueService implements QueueService {
     public void push(String queueUrl, String messageBody) throws InterruptedException, IOException {
         String queue = fromUrl(queueUrl);
         Message message = new Message(messageBody);
-        Path path = getQueueDir(queue);
         File lock = getLockFile(queue);
         try {
             lock(lock);
-            Path queueMessagePath = getQueueMessageQueueDir(queue);
-            Files.write(queueMessagePath, message.toString().getBytes(), StandardOpenOption.APPEND);
+            Path queueMessagePath = getQueueMessageQueuePath(queue);
+            Files.write(queueMessagePath, String.format("%s\n", message.toString()).getBytes(), StandardOpenOption.APPEND);
         } finally {
             unlock(lock);
         }
@@ -60,30 +59,32 @@ public class FileQueueService implements QueueService {
 
     @Override
     public Message pull(String queueUrl) throws InterruptedException, IOException {
-        final String MESSAGE_SHADOW_NAME = "shadow";
-
         String queue = fromUrl(queueUrl);
-        File queueMessagePath = getQueueMessageQueueDir(queue).toFile();
-        File shadowQueuePath = getShadowQueueMessageQueueDir(queue).toFile();
+        File queueMessagePath = getQueueMessageQueuePath(queue).toFile();
+        File shadowQueuePath = getShadowQueueMessageQueuePath(queue).toFile();
         File lock = getLockFile(queue);
+        String[] messageParts;
         try {
             lock(lock);
+            LOGGER.info("Shadow queue length: " + shadowQueuePath.length());
             if (shadowQueuePath.length() == 0) {
                 List<String> allMessages = Files.readAllLines(queueMessagePath.toPath());
                 for (int i = allMessages.size() - 1;i >= 0;i --) {
-                    Files.write(shadowQueuePath.toPath(), allMessages.get(i).getBytes(), StandardOpenOption.APPEND);
+                    Files.write(shadowQueuePath.toPath(), String.format("%s\n", allMessages.get(i)).getBytes(), StandardOpenOption.APPEND);
                 }
                 PrintWriter writer = new PrintWriter(queueMessagePath);
                 writer.print("");
                 writer.close();
             }
             String message = readFromLast(shadowQueuePath);
-            Path invisibleQueuePath = getInvisibleQueueDir(queue);
-            Files.write(invisibleQueuePath, String.format("%s:%s", message, now() + delaySeconds).getBytes(), StandardOpenOption.APPEND);
-            return new Message(message);
+            Path invisibleQueuePath = getInvisibleQueuePath(queue);
+            Files.write(invisibleQueuePath, String.format("%s:%s\n", message, now() + delaySeconds).getBytes(), StandardOpenOption.APPEND);
+            LOGGER.info("Pulled raw message: " + message);
+            messageParts = message.split(Message.getMessageSeparator());
         } finally {
             unlock(lock);
         }
+        return new Message(messageParts[0], messageParts[1]);
     }
 
     @Override
@@ -93,17 +94,17 @@ public class FileQueueService implements QueueService {
         File lock = getLockFile(queue);
         try {
             lock(lock);
-            List<String> invisibleMessages = Files.readAllLines(getInvisibleQueueDir(queue));
+            List<String> invisibleMessages = Files.readAllLines(getInvisibleQueuePath(queue));
             List<String> afterDeleteMessages = new LinkedList<>();
             for(String message: invisibleMessages) {
-                String[] split = message.split(":");
+                String[] split = message.split("-");
                 if (!split[0].equals(receiptHandle)) {
                     afterDeleteMessages.add(message);
                 }
             }
-            Path invisiblePath = getInvisibleQueueDir(queue);
+            Path invisiblePath = getInvisibleQueuePath(queue);
             for (String message: afterDeleteMessages) {
-                Files.write(invisiblePath, message.getBytes(), StandardOpenOption.APPEND);
+                Files.write(invisiblePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
             }
         } finally {
             unlock(lock);
@@ -111,24 +112,40 @@ public class FileQueueService implements QueueService {
     }
 
     public int getQueueSize(String queue) throws IOException {
-        return Files.readAllLines(getQueueMessageQueueDir(queue)).size();
+        return Files.readAllLines(getQueueMessageQueuePath(queue)).size();
     }
 
     public int getInvisibleSize(String queue) throws IOException {
-        return Files.readAllLines(getInvisibleQueueDir(queue)).size();
+        return Files.readAllLines(getInvisibleQueuePath(queue)).size();
     }
 
-    private Path getInvisibleQueueDir(String queue) throws IOException {
+    private Path getInvisibleQueuePath(String queue) throws IOException {
         final String INVISIBLE_FILE_NAME = "invisible";
-        return getQueueDir(queue).resolve(INVISIBLE_FILE_NAME);
+        Path res = getQueueDir(queue).resolve(INVISIBLE_FILE_NAME);
+        if (Files.notExists(res)) {
+            Files.createFile(res);
+        }
+        return res;
     }
 
-    private Path getQueueMessageQueueDir(String queue) throws IOException {
-        return getQueueDir(queue).resolve(MESSAGE_FILE_NAME);
+    private Path getQueueMessageQueuePath(String queue) throws IOException {
+        final String MESSAGE_FILE_NAME = "messages";
+
+        Path res = getQueueDir(queue).resolve(MESSAGE_FILE_NAME);
+        if (Files.notExists(res)) {
+            Files.createFile(res);
+        }
+        return res;
     }
 
-    private Path getShadowQueueMessageQueueDir(String queue) throws IOException {
-        return getQueueDir(queue).resolve(MESSAGE_FILE_NAME);
+    private Path getShadowQueueMessageQueuePath(String queue) throws IOException {
+        final String MESSAGE_SHADOW_NAME = "shadow";
+
+        Path res = getQueueDir(queue).resolve(MESSAGE_SHADOW_NAME);
+        if (Files.notExists(res)) {
+            Files.createFile(res);
+        }
+        return res;
     }
 
     /**
@@ -136,8 +153,8 @@ public class FileQueueService implements QueueService {
      * @param queue queue name
      */
     protected void purgeQueue(String queue) throws IOException {
-        getQueueMessageQueueDir(queue).toFile().delete();
-        getInvisibleQueueDir(queue).toFile().delete();
+        getQueueMessageQueuePath(queue).toFile().delete();
+        getInvisibleQueuePath(queue).toFile().delete();
     }
 
     /**
@@ -146,20 +163,20 @@ public class FileQueueService implements QueueService {
      * @throws IOException
      */
     protected void clearInsivible(String queue) throws IOException {
-        List<String> messages = Files.readAllLines(getInvisibleQueueDir(queue));
+        List<String> messages = Files.readAllLines(getInvisibleQueuePath(queue));
         List<String> afterCleanMessgages = new LinkedList<String>();
-        Path messageQueuePath = getQueueMessageQueueDir(queue);
+        Path messageQueuePath = getQueueMessageQueuePath(queue);
         for(String message: messages) {
             String[] split = message.split(":");
             if (Long.valueOf(split[1]) <= now()) {
-                Files.write(messageQueuePath, message.getBytes(), StandardOpenOption.APPEND);
+                Files.write(messageQueuePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
             } else {
                 afterCleanMessgages.add(split[0]);
             }
         }
-        Path invisiblePath = getInvisibleQueueDir(queue);
+        Path invisiblePath = getInvisibleQueuePath(queue);
         for (String message: afterCleanMessgages) {
-            Files.write(invisiblePath, message.getBytes(), StandardOpenOption.APPEND);
+            Files.write(invisiblePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
         }
     }
 
@@ -175,7 +192,8 @@ public class FileQueueService implements QueueService {
         RandomAccessFile randomAccessFile = null;
         try {
             randomAccessFile = new RandomAccessFile(file, "r");
-            long fileLength = file.length() - 1;
+            LOGGER.info("File length: " + randomAccessFile.length());
+            long fileLength = file.length() - 2;
             // Set the pointer at the last of the file
             randomAccessFile.seek(fileLength);
             long pointer;
@@ -192,8 +210,11 @@ public class FileQueueService implements QueueService {
             }
             // Since line is read from the last so it
             // is in reverse so use reverse method to make it right
-            randomAccessFile.setLength(pointer);
+            LOGGER.info("file new length: " + String.valueOf(pointer));
+            randomAccessFile.getChannel().truncate(pointer + 1);
             builder.reverse();
+            LOGGER.info("Get last line: " + builder);
+            LOGGER.info("Length after truncate: " + randomAccessFile.length());
             return builder.toString();
         } catch (IOException e) {
             // TODO Auto-generated catch block
@@ -220,9 +241,11 @@ public class FileQueueService implements QueueService {
         return queueUrl;
     }
 
-    private File getLockFile(String queue) {
+    private File getLockFile(String queue) throws IOException {
         final String LOCK_DIR = ".lock";
-        return new File(queue + LOCK_DIR);
+
+        Path res = getQueueDir(queue).resolve(LOCK_DIR);
+        return res.toFile();
     }
 
     /**
