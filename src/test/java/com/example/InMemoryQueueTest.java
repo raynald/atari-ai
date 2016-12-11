@@ -69,15 +69,15 @@ public class InMemoryQueueTest {
         service.setDelayMilliSeconds(0L);
         service.push(QUEUE_NAME, messageBody);
         service.push(QUEUE_NAME, messageBodyNew);
-        assertEquals(2, service.getQueueSize(QUEUE_NAME));
+        assertEquals("Queue size is not 2", 2, service.getQueueSize(QUEUE_NAME));
         assertEquals(messageBody, service.pull(QUEUE_NAME).getMessageBody());
-        assertEquals(1, service.getQueueSize(QUEUE_NAME));
+        assertEquals("Queue size is not 1",1, service.getQueueSize(QUEUE_NAME));
         while(service.getInvisibleSize(QUEUE_NAME) != 0 || service.getQueueSize(QUEUE_NAME) != 2)  {
             service.clearInvisible();
         }
-        assertEquals(0, service.getInvisibleSize(QUEUE_NAME));
-        assertEquals(2, service.getQueueSize(QUEUE_NAME));
-        assertEquals(messageBody, service.pull(QUEUE_NAME).getMessageBody());
+        assertEquals("Invisible queue is not empty", 0, service.getInvisibleSize(QUEUE_NAME));
+        assertEquals("Queue size is not 2", 2, service.getQueueSize(QUEUE_NAME));
+        assertEquals("Message body is not same", messageBody, service.pull(QUEUE_NAME).getMessageBody());
     }
 
     @Test
@@ -85,7 +85,7 @@ public class InMemoryQueueTest {
         String QUEUE_NAME = BASE_QUEUE_NAME + "Concur";
         service.purgeQueue(QUEUE_NAME);
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() + 1);
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < 4; i++) {
             service.push(QUEUE_NAME, messageBody);
             Runnable worker = () -> {
                 Message message = service.pull(QUEUE_NAME);
@@ -95,7 +95,7 @@ public class InMemoryQueueTest {
         }
         executor.shutdown();
         while (!executor.isTerminated()) {}
-        assertEquals("Messages queue is not empty", 0, service.getQueueSize(QUEUE_NAME));
-        assertEquals("Pending messages container is not empty", 0, service.getInvisibleSize(QUEUE_NAME));
+        assertEquals("Queue is not empty", 0, service.getQueueSize(QUEUE_NAME));
+        assertEquals("Invisible queue is not empty", 0, service.getInvisibleSize(QUEUE_NAME));
     }
 }

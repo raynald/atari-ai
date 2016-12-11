@@ -86,7 +86,7 @@ public class FileQueueTest {
         String QUEUE_NAME = BASE_QUEUE_NAME + "Concur";
         service.purgeQueue(QUEUE_NAME);
         ExecutorService executor = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors() + 1);
-        for (int i = 0; i < 1; i++) {
+        for (int i = 0; i < 4; i++) {
             service.push(QUEUE_NAME, messageBody);
             Runnable worker = () -> {
                 try {
@@ -100,8 +100,7 @@ public class FileQueueTest {
         }
         executor.shutdown();
         while (!executor.isTerminated()) {}
-        assertEquals("Messages queue is not empty", 0, service.getQueueSize(QUEUE_NAME));
-        assertEquals("Pending messages container is not empty", 0, service.getInvisibleSize(QUEUE_NAME));
+        assertEquals("Queue is not empty", 0, service.getQueueSize(QUEUE_NAME));
+        assertEquals("Invisible queue is not empty", 0, service.getInvisibleSize(QUEUE_NAME));
     }
-
 }
