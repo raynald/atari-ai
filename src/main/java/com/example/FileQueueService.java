@@ -106,25 +106,29 @@ public class FileQueueService implements QueueService {
                     afterDeleteMessages.add(rawMessage);
                 }
             }
-            Path invisiblePath = getInvisibleQueuePath(queue);
-            // Clear file content
-            PrintWriter writer = new PrintWriter(invisiblePath.toFile());
-            writer.print("");
-            writer.close();
-            for (String message: afterDeleteMessages) {
-                Files.write(invisiblePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
-            }
+            generateNewInvisibleQueue(queue, afterDeleteMessages);
         } finally {
             unlock(lock);
         }
     }
 
-    public int getQueueSize(String queue) throws IOException {
+    private void generateNewInvisibleQueue(String queue, List<String> afterDeleteMessages) throws IOException {
+        Path invisiblePath = getInvisibleQueuePath(queue);
+        // Clear file content
+        PrintWriter writer = new PrintWriter(invisiblePath.toFile());
+        writer.print("");
+        writer.close();
+        for (String message: afterDeleteMessages) {
+            Files.write(invisiblePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
+        }
+    }
+
+    int getQueueSize(String queue) throws IOException {
         return Files.readAllLines(getQueueMessageQueuePath(queue)).size() +
                 Files.readAllLines(getShadowQueueMessageQueuePath(queue)).size();
     }
 
-    public int getInvisibleSize(String queue) throws IOException {
+    int getInvisibleSize(String queue) throws IOException {
         return Files.readAllLines(getInvisibleQueuePath(queue)).size();
     }
 
@@ -174,7 +178,7 @@ public class FileQueueService implements QueueService {
      */
     protected void clearInsivible(String queue) throws IOException {
         List<String> messages = Files.readAllLines(getInvisibleQueuePath(queue));
-        List<String> afterCleanMessgages = new LinkedList<String>();
+        List<String> afterDeleteMessages = new LinkedList<String>();
         Path shadowQueuePath = getShadowQueueMessageQueuePath(queue);
         for(String rawMessage: messages) {
             Message message = Message.fromString(rawMessage);
@@ -182,17 +186,10 @@ public class FileQueueService implements QueueService {
             if (message.getRevival() <= now()) {
                 Files.write(shadowQueuePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
             } else {
-                afterCleanMessgages.add(rawMessage);
+                afterDeleteMessages.add(rawMessage);
             }
         }
-        Path invisiblePath = getInvisibleQueuePath(queue);
-        // Clear file content
-        PrintWriter writer = new PrintWriter(invisiblePath.toFile());
-        writer.print("");
-        writer.close();
-        for (String message: afterCleanMessgages) {
-            Files.write(invisiblePath, String.format("%s\n", message).getBytes(), StandardOpenOption.APPEND);
-        }
+        generateNewInvisibleQueue(queue, afterDeleteMessages);
     }
 
     /**

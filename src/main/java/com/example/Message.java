@@ -65,8 +65,4 @@ public class Message {
     public void setQueue(String queueName) {
         queue = queueName;
     }
-
-    public static String getMessageSeparator() {
-        return messageSeparator;
-    }
 }

@@ -8,8 +8,6 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-// TODO: differ invisible message with visible message
-// TODO: thread safe
 
 public class InMemoryQueueService implements QueueService {
     private static InMemoryQueueService instance = null;
@@ -17,7 +15,7 @@ public class InMemoryQueueService implements QueueService {
     private ConcurrentHashMap<String, HashMap<String, Message>> invisibleQueueMap;
     private PriorityBlockingQueue<Message> invisibleQueueHeap;
 
-    private Long delaySeconds = 500L;
+    private Long delayMilliSeconds = 500L;
 
     private InMemoryQueueService() {
         Comparator<Message> comparator = new Comparator<Message>() {
@@ -35,8 +33,8 @@ public class InMemoryQueueService implements QueueService {
         return System.currentTimeMillis();
     }
 
-    public void setDelaySeconds(Long time) {
-        delaySeconds = time;
+    public void setDelayMilliSeconds(Long time) {
+        delayMilliSeconds = time;
     }
 
     public static InMemoryQueueService getInstance() {
@@ -70,6 +68,7 @@ public class InMemoryQueueService implements QueueService {
         String queue = fromUrl(queueUrl);
         Deque<Message> messageDeque = getMainQueue(queue);
         Message message = new Message(messageBody);
+        message.setQueue(queue);
         messageDeque.offerLast(message);
     }
 
@@ -79,7 +78,7 @@ public class InMemoryQueueService implements QueueService {
         Deque<Message> messageQueue = getMainQueue(queue);
         Message nextMessage = messageQueue.pollFirst();
         if (nextMessage != null) {
-            nextMessage.setRevival(now() + TimeUnit.SECONDS.toMillis(delaySeconds));
+            nextMessage.setRevival(now() + delayMilliSeconds);
             getInvisibleQueueMap(queue).put(nextMessage.getReceiptHandle(), nextMessage);
             invisibleQueueHeap.add(nextMessage);
         }
