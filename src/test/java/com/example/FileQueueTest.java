@@ -2,6 +2,7 @@ package com.example;
 
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -34,8 +35,6 @@ public class FileQueueTest {
         assertEquals("The size of message queue is not one!", 1, service.getQueueSize(QUEUE_NAME));
     }
 
-
-
     @Test
     public void pullTest() throws InterruptedException, IOException {
         String QUEUE_NAME = BASE_QUEUE_NAME + "Pull";
@@ -43,7 +42,7 @@ public class FileQueueTest {
         service.push(QUEUE_NAME, messageBody);
         Message message = service.pull(QUEUE_NAME);
         assertNotNull("Failed to retrieve the message!", message);
-        assertEquals("Message is not same!", message.getMessageBody(), messageBody);
+        assertEquals("Message is not same!", messageBody, message.getMessageBody());
     }
 
     @Test
@@ -70,16 +69,18 @@ public class FileQueueTest {
     public void timeoutTest() throws InterruptedException, IOException{
         String QUEUE_NAME = BASE_QUEUE_NAME + "Timeout";
         service.purgeQueue(QUEUE_NAME);
-        service.setDelaySeconds(0L);
+        service.setDelayMilliSeconds(0L);
         service.push(QUEUE_NAME, messageBody);
         service.push(QUEUE_NAME, messageBodyNew);
-
-        assertEquals(service.pull(QUEUE_NAME).getMessageBody(), messageBody);
-        while(service.getInvisibleSize(QUEUE_NAME) != 0 && service.getQueueSize(QUEUE_NAME) != 2){}
-
-        assertEquals(service.getQueueSize(QUEUE_NAME), 2);
-        assertEquals(service.getInvisibleSize(QUEUE_NAME), 0);
-        assertEquals(service.pull(QUEUE_NAME).getMessageBody(), messageBody);
+        assertEquals(2, service.getQueueSize(QUEUE_NAME));
+        assertEquals(messageBody, service.pull(QUEUE_NAME).getMessageBody());
+        assertEquals(1, service.getQueueSize(QUEUE_NAME));
+        while(service.getInvisibleSize(QUEUE_NAME) != 0 || service.getQueueSize(QUEUE_NAME) != 2)  {
+            service.clearInsivible(QUEUE_NAME);
+        }
+        assertEquals(0, service.getInvisibleSize(QUEUE_NAME));
+        assertEquals(2, service.getQueueSize(QUEUE_NAME));
+        assertEquals(messageBody, service.pull(QUEUE_NAME).getMessageBody());
     }
 
     @Test
@@ -101,8 +102,8 @@ public class FileQueueTest {
         }
         executor.shutdown();
         while (!executor.isTerminated()) {}
-        assertEquals("Messages queue is not empty", service.getQueueSize(QUEUE_NAME), 0);
-        assertEquals("Pending messages container is not empty", service.getInvisibleSize(QUEUE_NAME), 0);
+        assertEquals("Messages queue is not empty", 0, service.getQueueSize(QUEUE_NAME));
+        assertEquals("Pending messages container is not empty", 0, service.getInvisibleSize(QUEUE_NAME));
     }
 
 }

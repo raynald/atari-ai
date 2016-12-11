@@ -24,9 +24,22 @@ public class Message {
         queue = "";
     }
 
+    public Message(String body, String handle, Long rev) {
+        messageBody = body;
+        receiptHandle = handle;
+        revival = rev;
+        queue = "";
+    }
+
     public String toString() {
-        return String.format("%s%s%s%s%s", receiptHandle, messageSeparator
-                , messageBody, messageSeparator, revival);
+        return String.format("%s%s%s%s%s", messageBody, messageSeparator
+                , receiptHandle, messageSeparator, revival);
+    }
+
+    public static Message fromString(String rawString) {
+        String[] temps = rawString.split(messageSeparator);
+        if (temps.length < 3) return null;
+        return new Message(temps[0], temps[1], Long.parseLong(temps[2]));
     }
 
     public String getMessageBody() {
