@@ -23,10 +23,6 @@
 
     <property name="fileExtensions" value="java, properties, xml"/>
 
-    <module name="SuppressionFilter">
-        <property name="file" value="stylecheck_suppression.xml" />
-    </module>
-
     <!-- Checks for whitespace                               -->
     <module name="FileTabCharacter">
         <property name="eachLine" value="true"/>
@@ -164,7 +160,7 @@
         </module>
         <module name="AbbreviationAsWordInName">
         <property name="ignoreFinal" value="false"/>
-        <property name="allowedAbbreviationLength" value="4"/>
+        <property name="allowedAbbreviationLength" value="10"/>
         </module>
         <module name="OverloadMethodsDeclarationOrder"/>
         <module name="VariableDeclarationUsageDistance"/>

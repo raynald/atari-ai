@@ -6,6 +6,9 @@ import com.amazonaws.services.sqs.model.ReceiveMessageResult;
 
 import java.util.List;
 
+/**
+ * An adapter for Amazon SQS service.
+ */
 public class SqsQueueService implements QueueService {
     private AmazonSQSClient amazonSQSClient;
 

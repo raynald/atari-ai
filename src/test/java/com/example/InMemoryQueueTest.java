@@ -1,6 +1,7 @@
 package com.example;
 
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.concurrent.ExecutorService;
@@ -14,11 +15,13 @@ public class InMemoryQueueTest {
     private final String BASE_QUEUE_NAME = "InMemoryQueue";
     private InMemoryQueueService service;
     private String messageBody;
+    private String messageBodyNew;
 
     @Before
     public void setUp() {
         service = InMemoryQueueService.getInstance();
         messageBody = String.format("InMemeryQueueTest%s", System.currentTimeMillis());
+        messageBodyNew = String.format("InMemeryQueueTestNew%s", System.currentTimeMillis());
     }
 
     @Test
@@ -57,6 +60,24 @@ public class InMemoryQueueTest {
         Message firstMessage = service.pull(QUEUE_NAME);
         Message secondMessage = service.pull(QUEUE_NAME);
         assertNull("Second pulled message is not NULL!", secondMessage);
+    }
+
+    @Test(timeout = 1000)
+    public void timeoutTest() {
+        String QUEUE_NAME = BASE_QUEUE_NAME + "Timeout";
+        service.purgeQueue(QUEUE_NAME);
+        service.setDelayMilliSeconds(0L);
+        service.push(QUEUE_NAME, messageBody);
+        service.push(QUEUE_NAME, messageBodyNew);
+        assertEquals(2, service.getQueueSize(QUEUE_NAME));
+        assertEquals(messageBody, service.pull(QUEUE_NAME).getMessageBody());
+        assertEquals(1, service.getQueueSize(QUEUE_NAME));
+        while(service.getInvisibleSize(QUEUE_NAME) != 0 || service.getQueueSize(QUEUE_NAME) != 2)  {
+            service.clearInsivible();
+        }
+        assertEquals(0, service.getInvisibleSize(QUEUE_NAME));
+        assertEquals(2, service.getQueueSize(QUEUE_NAME));
+        assertEquals(messageBody, service.pull(QUEUE_NAME).getMessageBody());
     }
 
     @Test
